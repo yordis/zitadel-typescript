@@ -1,37 +1,41 @@
 import {
-  createCallback,
   getBrandingSettings,
-  getSession,
-  server,
+  sessionService,
+  oidcService,
 } from "@/lib/zitadel";
 import DynamicTheme from "@/ui/DynamicTheme";
 import UserAvatar from "@/ui/UserAvatar";
-import { getMostRecentCookieWithLoginname } from "@/utils/cookies";
+import { getMostRecentCookieWithLoginName } from "@/utils/cookies";
 import { redirect } from "next/navigation";
 
 async function loadSession(loginName: string, authRequestId?: string) {
-  const recent = await getMostRecentCookieWithLoginname(`${loginName}`);
+  const recent = await getMostRecentCookieWithLoginName(`${loginName}`);
 
   if (authRequestId) {
-    return createCallback(server, {
-      authRequestId,
-      session: { sessionId: recent.id, sessionToken: recent.token },
-    }).then(({ callbackUrl }) => {
-      return redirect(callbackUrl);
-    });
+    return oidcService
+      .createCallback({
+        authRequestId,
+        callbackKind: {
+          case: "session",
+          value: { sessionId: recent.id, sessionToken: recent.token },
+        },
+      })
+      .then(({ callbackUrl }) => {
+        return redirect(callbackUrl);
+      });
   }
-  return getSession(server, recent.id, recent.token).then((response) => {
-    if (response?.session) {
-      return response.session;
-    }
+  const response = await sessionService.getSession({
+    sessionId: recent.id,
+    sessionToken: recent.token,
   });
+  return response?.session;
 }
 
 export default async function Page({ searchParams }: { searchParams: any }) {
   const { loginName, authRequestId, organization } = searchParams;
   const sessionFactors = await loadSession(loginName, authRequestId);
 
-  const branding = await getBrandingSettings(server, organization);
+  const branding = await getBrandingSettings(organization);
 
   return (
     <DynamicTheme branding={branding}>
@@ -43,7 +47,6 @@ export default async function Page({ searchParams }: { searchParams: any }) {
           loginName={loginName ?? sessionFactors?.factors?.user?.loginName}
           displayName={sessionFactors?.factors?.user?.displayName}
           showDropdown
-          searchParams={searchParams}
         ></UserAvatar>
       </div>
     </DynamicTheme>

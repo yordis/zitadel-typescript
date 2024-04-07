@@ -1,6 +1,5 @@
 import tinycolor from "tinycolor2";
-
-import { BrandingSettings } from "@zitadel/server";
+import { BrandingSettings } from "@zitadel/proto/zitadel/settings/v2beta/branding_settings_pb";
 
 export interface Color {
   name: string;

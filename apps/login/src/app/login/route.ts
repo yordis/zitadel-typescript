@@ -1,21 +1,25 @@
-import {
-  createCallback,
-  getAuthRequest,
-  getOrgByDomain,
-  listSessions,
-  server,
-} from "@/lib/zitadel";
+import { sessionService, managementService, oidcService } from "@/lib/zitadel";
 import { SessionCookie, getAllSessions } from "@/utils/cookies";
-import { Session, AuthRequest, Prompt } from "@zitadel/server";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  AuthRequest,
+  Prompt,
+} from "@zitadel/proto/zitadel/oidc/v2beta/authorization_pb";
+import { Session } from "@zitadel/proto/zitadel/session/v2beta/session_pb";
 
 async function loadSessions(ids: string[]): Promise<Session[]> {
-  const response = await listSessions(
-    server,
-    ids.filter((id: string | undefined) => !!id),
-  );
+  const response = await sessionService.listSessions({
+    queries: [
+      {
+        query: {
+          case: "idsQuery",
+          value: { ids: ids.filter((id: string | undefined) => !!id) },
+        },
+      },
+    ],
+  });
 
-  return response?.sessions ?? [];
+  return response.sessions;
 }
 
 const ORG_SCOPE_REGEX = /urn:zitadel:iam:org:id:([0-9]+)/;
@@ -53,13 +57,6 @@ export async function GET(request: NextRequest) {
     sessions = await loadSessions(ids);
   }
 
-  /**
-   * TODO: before automatically redirecting to the callbackUrl, check if the session is still valid
-   * possible scenaio:
-   * mfa is required, session is not valid anymore (e.g. session expired, user logged out, etc.)
-   * to check for mfa for automatically selected session -> const response = await listAuthenticationMethodTypes(userId);
-   **/
-
   if (authRequestId && sessionId) {
     console.log(
       `Login with session: ${sessionId} and authRequest: ${authRequestId}`,
@@ -76,14 +73,15 @@ export async function GET(request: NextRequest) {
       if (cookie && cookie.id && cookie.token) {
         console.log(`Found sessioncookie ${cookie.id}`);
 
-        const session = {
-          sessionId: cookie?.id,
-          sessionToken: cookie?.token,
-        };
-
-        const { callbackUrl } = await createCallback(server, {
+        const { callbackUrl } = await oidcService.createCallback({
           authRequestId,
-          session,
+          callbackKind: {
+            case: "session",
+            value: {
+              sessionId: cookie?.id,
+              sessionToken: cookie?.token,
+            },
+          },
         });
         return NextResponse.redirect(callbackUrl);
       }
@@ -92,9 +90,8 @@ export async function GET(request: NextRequest) {
 
   if (authRequestId) {
     console.log(`Login with authRequest: ${authRequestId}`);
-    const { authRequest } = await getAuthRequest(server, { authRequestId });
-
-    let organization = "";
+    const { authRequest } = await oidcService.getAuthRequest({ authRequestId });
+    let organization;
 
     if (authRequest?.scope) {
       const orgScope = authRequest.scope.find((s: string) =>
@@ -113,26 +110,16 @@ export async function GET(request: NextRequest) {
           const matched = ORG_DOMAIN_SCOPE_REGEX.exec(orgDomainScope);
           const orgDomain = matched?.[1] ?? "";
           if (orgDomain) {
-            const org = await getOrgByDomain(orgDomain);
+            const org = await managementService.getOrgByDomainGlobal({
+              domain: orgDomain,
+            });
             organization = org?.org?.id ?? "";
           }
         }
       }
     }
 
-    const gotoAccounts = (): NextResponse<unknown> => {
-      const accountsUrl = new URL("/accounts", request.url);
-      if (authRequest?.id) {
-        accountsUrl.searchParams.set("authRequestId", authRequest?.id);
-      }
-      if (organization) {
-        accountsUrl.searchParams.set("organization", organization);
-      }
-
-      return NextResponse.redirect(accountsUrl);
-    };
-
-    if (authRequest && authRequest.prompt.includes(Prompt.PROMPT_CREATE)) {
+    if (authRequest && authRequest.prompt.includes(Prompt.CREATE)) {
       const registerUrl = new URL("/register", request.url);
       if (authRequest?.id) {
         registerUrl.searchParams.set("authRequestId", authRequest?.id);
@@ -147,9 +134,17 @@ export async function GET(request: NextRequest) {
     // use existing session and hydrate it for oidc
     if (authRequest && sessions.length) {
       // if some accounts are available for selection and select_account is set
-      if (authRequest.prompt.includes(Prompt.PROMPT_SELECT_ACCOUNT)) {
-        return gotoAccounts();
-      } else if (authRequest.prompt.includes(Prompt.PROMPT_LOGIN)) {
+      if (authRequest.prompt.includes(Prompt.SELECT_ACCOUNT)) {
+        const accountsUrl = new URL("/accounts", request.url);
+        if (authRequest?.id) {
+          accountsUrl.searchParams.set("authRequestId", authRequest?.id);
+        }
+        if (organization) {
+          accountsUrl.searchParams.set("organization", organization);
+        }
+
+        return NextResponse.redirect(accountsUrl);
+      } else if (authRequest.prompt.includes(Prompt.LOGIN)) {
         // if prompt is login
         const loginNameUrl = new URL("/loginname", request.url);
         if (authRequest?.id) {
@@ -162,7 +157,7 @@ export async function GET(request: NextRequest) {
           loginNameUrl.searchParams.set("organization", organization);
         }
         return NextResponse.redirect(loginNameUrl);
-      } else if (authRequest.prompt.includes(Prompt.PROMPT_NONE)) {
+      } else if (authRequest.prompt.includes(Prompt.NONE)) {
         // NONE prompt - silent authentication
 
         let selectedSession = findSession(sessions, authRequest);
@@ -173,13 +168,15 @@ export async function GET(request: NextRequest) {
           );
 
           if (cookie && cookie.id && cookie.token) {
-            const session = {
-              sessionId: cookie?.id,
-              sessionToken: cookie?.token,
-            };
-            const { callbackUrl } = await createCallback(server, {
+            const { callbackUrl } = await oidcService.createCallback({
               authRequestId,
-              session,
+              callbackKind: {
+                case: "session",
+                value: {
+                  sessionId: cookie?.id,
+                  sessionToken: cookie?.token,
+                },
+              },
             });
             return NextResponse.redirect(callbackUrl);
           } else {
@@ -204,29 +201,32 @@ export async function GET(request: NextRequest) {
           );
 
           if (cookie && cookie.id && cookie.token) {
-            const session = {
-              sessionId: cookie?.id,
-              sessionToken: cookie?.token,
-            };
-            try {
-              const { callbackUrl } = await createCallback(server, {
-                authRequestId,
-                session,
-              });
-              if (callbackUrl) {
-                return NextResponse.redirect(callbackUrl);
-              } else {
-                return gotoAccounts();
-              }
-            } catch (error) {
-              console.error(error);
-              return gotoAccounts();
-            }
+            const { callbackUrl } = await oidcService.createCallback({
+              authRequestId,
+              callbackKind: {
+                case: "session",
+                value: {
+                  sessionId: cookie?.id,
+                  sessionToken: cookie?.token,
+                },
+              },
+            });
+            return NextResponse.redirect(callbackUrl);
           } else {
-            return gotoAccounts();
+            const accountsUrl = new URL("/accounts", request.url);
+            accountsUrl.searchParams.set("authRequestId", authRequestId);
+            if (organization) {
+              accountsUrl.searchParams.set("organization", organization);
+            }
+            return NextResponse.redirect(accountsUrl);
           }
         } else {
-          return gotoAccounts();
+          const accountsUrl = new URL("/accounts", request.url);
+          accountsUrl.searchParams.set("authRequestId", authRequestId);
+          if (organization) {
+            accountsUrl.searchParams.set("organization", organization);
+          }
+          return NextResponse.redirect(accountsUrl);
         }
       }
     } else {

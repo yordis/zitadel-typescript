@@ -6,8 +6,8 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { Spinner } from "./Spinner";
 import Alert from "./Alert";
-import { AuthRequest, RegisterPasskeyResponse } from "@zitadel/server";
 import { coerceToArrayBuffer, coerceToBase64Url } from "@/utils/base64";
+import { RegisterPasskeyResponse } from "@zitadel/proto/zitadel/user/v2beta/user_service_pb";
 type Inputs = {};
 
 type Props = {
@@ -89,25 +89,27 @@ export default function RegisterPasskey({
   function submitRegisterAndContinue(value: Inputs): Promise<boolean | void> {
     return submitRegister().then((resp: RegisterPasskeyResponse) => {
       const passkeyId = resp.passkeyId;
+      const publicKeyCredentialCreationOptions =
+        resp.publicKeyCredentialCreationOptions?.toJson() as {
+          publicKey?: PublicKeyCredentialCreationOptions;
+        };
 
       if (
-        resp.publicKeyCredentialCreationOptions &&
-        resp.publicKeyCredentialCreationOptions.publicKey
+        publicKeyCredentialCreationOptions &&
+        publicKeyCredentialCreationOptions.publicKey
       ) {
-        resp.publicKeyCredentialCreationOptions.publicKey.challenge =
+        publicKeyCredentialCreationOptions.publicKey.challenge =
           coerceToArrayBuffer(
-            resp.publicKeyCredentialCreationOptions.publicKey.challenge,
+            publicKeyCredentialCreationOptions.publicKey.challenge,
             "challenge",
           );
-        resp.publicKeyCredentialCreationOptions.publicKey.user.id =
+        publicKeyCredentialCreationOptions.publicKey.user.id =
           coerceToArrayBuffer(
-            resp.publicKeyCredentialCreationOptions.publicKey.user.id,
+            publicKeyCredentialCreationOptions.publicKey.user.id,
             "userid",
           );
-        if (
-          resp.publicKeyCredentialCreationOptions.publicKey.excludeCredentials
-        ) {
-          resp.publicKeyCredentialCreationOptions.publicKey.excludeCredentials.map(
+        if (publicKeyCredentialCreationOptions.publicKey.excludeCredentials) {
+          publicKeyCredentialCreationOptions.publicKey.excludeCredentials.map(
             (cred: any) => {
               cred.id = coerceToArrayBuffer(
                 cred.id as string,
@@ -119,7 +121,7 @@ export default function RegisterPasskey({
         }
 
         navigator.credentials
-          .create(resp.publicKeyCredentialCreationOptions)
+          .create(publicKeyCredentialCreationOptions)
           .then((resp) => {
             if (
               resp &&
@@ -200,17 +202,14 @@ export default function RegisterPasskey({
             onClick={() => {
               const params = new URLSearchParams();
               if (authRequestId) {
-                params.set("authRequest", authRequestId);
-              }
-              if (sessionId) {
-                params.set("sessionId", sessionId);
+                params.set("authRequestId", authRequestId);
               }
 
               if (organization) {
                 params.set("organization", organization);
               }
 
-              router.push("/login?" + params);
+              router.push("/accounts?" + params);
             }}
           >
             skip

@@ -1,4 +1,4 @@
-import { setEmail, server } from "@/lib/zitadel";
+import { userService } from "@/lib/zitadel";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -7,7 +7,8 @@ export async function POST(request: NextRequest) {
     const { userId, code } = body;
 
     // replace with resend Mail method once its implemented
-    return setEmail(server, userId)
+    return userService
+      .setEmail({ userId })
       .then((resp) => {
         return NextResponse.json(resp);
       })

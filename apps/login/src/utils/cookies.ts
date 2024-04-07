@@ -109,73 +109,63 @@ export async function removeSessionFromCookie(
   }
 }
 
-export async function getMostRecentSessionCookie(): Promise<any> {
-  const cookiesList = cookies();
-  const stringifiedCookie = cookiesList.get("sessions");
+export async function getMostRecentSessionCookie() {
+  return cookieSessions().sort(sortSessionCookie).at(0);
+}
 
-  if (stringifiedCookie?.value) {
-    const sessions: SessionCookie[] = JSON.parse(stringifiedCookie?.value);
-
-    const latest = sessions.reduce((prev, current) => {
-      return new Date(prev.changeDate).getTime() >
-        new Date(current.changeDate).getTime()
-        ? prev
-        : current;
-    });
-
-    return latest;
-  } else {
-    return Promise.reject("no session cookie found");
-  }
+function cookieSessions(): SessionCookie[] {
+  const stringifiedCookie = cookies().get("sessions");
+  return stringifiedCookie?.value ? JSON.parse(stringifiedCookie?.value) : [];
 }
 
 export async function getSessionCookieById(
   id: string,
   organization?: string,
 ): Promise<SessionCookie> {
-  const cookiesList = cookies();
-  const stringifiedCookie = cookiesList.get("sessions");
+  const sessions = cookieSessions();
 
-  if (stringifiedCookie?.value) {
-    const sessions: SessionCookie[] = JSON.parse(stringifiedCookie?.value);
-
-    const found = sessions.find((s) =>
-      organization
-        ? s.organization === organization && s.id === id
-        : s.id === id,
-    );
-    if (found) {
-      return found;
-    } else {
-      return Promise.reject();
+  const found = sessions.find((session) => {
+    if (session.id !== id) {
+      return false;
     }
-  } else {
-    return Promise.reject();
+
+    if (organization) {
+      return session.organization === organization;
+    }
+
+    return true;
+  });
+
+  if (!found) {
+    throw new Error("No session cookie found");
   }
+
+  return found;
 }
 
 export async function getSessionCookieByLoginName(
   loginName: string,
   organization?: string,
 ): Promise<SessionCookie> {
-  const cookiesList = cookies();
-  const stringifiedCookie = cookiesList.get("sessions");
+  const sessions = cookieSessions();
 
-  if (stringifiedCookie?.value) {
-    const sessions: SessionCookie[] = JSON.parse(stringifiedCookie?.value);
-    const found = sessions.find((s) =>
-      organization
-        ? s.organization === organization && s.loginName === loginName
-        : s.loginName === loginName,
-    );
-    if (found) {
-      return found;
-    } else {
-      return Promise.reject("no cookie found with loginName: " + loginName);
+  const found = sessions.find((session) => {
+    if (session.loginName !== loginName) {
+      return false;
     }
-  } else {
-    return Promise.reject("no session cookie found");
+
+    if (organization) {
+      return session.organization === organization;
+    }
+
+    return true;
+  });
+
+  if (!found) {
+    throw new Error("No session cookie found");
   }
+
+  return found;
 }
 
 /**
@@ -215,70 +205,69 @@ export async function getAllSessionCookieIds(
  * @returns Session Cookies
  */
 export async function getAllSessions(
-  cleanup: boolean = false,
+  cleanup: boolean = true,
 ): Promise<SessionCookie[]> {
-  const cookiesList = cookies();
-  const stringifiedCookie = cookiesList.get("sessions");
+  const sessions = cookieSessions();
 
-  if (stringifiedCookie?.value) {
-    const sessions: SessionCookie[] = JSON.parse(stringifiedCookie?.value);
-
-    if (cleanup) {
-      const now = new Date();
-      return sessions.filter((session) =>
-        session.expirationDate ? new Date(session.expirationDate) > now : true,
-      );
-    } else {
-      return sessions;
-    }
-  } else {
-    return [];
+  if (cleanup) {
+    const now = new Date();
+    return sessions.filter(isAfterExpirationDate(now));
   }
+
+  return sessions;
+}
+
+function isAfterExpirationDate(now: Date) {
+  return (session: SessionCookie) => {
+    return session.expirationDate
+      ? new Date(session.expirationDate) > now
+      : true;
+  };
+}
+
+function isLoginNameSessionCookie(loginName: string) {
+  return (cookie: SessionCookie) => {
+    return cookie.loginName === loginName;
+  };
+}
+
+function isOrganizationSessionCookie(orgId: string) {
+  return (cookie: SessionCookie) => {
+    return cookie.organization === orgId;
+  };
+}
+
+function sortSessionCookie(prev: SessionCookie, current: SessionCookie) {
+  return (
+    new Date(current.changeDate).getTime() - new Date(prev.changeDate).getTime()
+  );
 }
 
 /**
- * Returns most recent session filtered by optinal loginName
- * @param loginName
+ * Returns most recent session filtered
+ * @param loginName filter by loginName
+ * @param organization filter by organization
  * @returns most recent session
  */
-export async function getMostRecentCookieWithLoginname(
+export async function getMostRecentCookieWithLoginName(
   loginName?: string,
   organization?: string,
 ): Promise<any> {
-  const cookiesList = cookies();
-  const stringifiedCookie = cookiesList.get("sessions");
+  let sessions = cookieSessions();
 
-  if (stringifiedCookie?.value) {
-    const sessions: SessionCookie[] = JSON.parse(stringifiedCookie?.value);
-    let filtered = sessions.filter((cookie) => {
-      return !!loginName ? cookie.loginName === loginName : true;
-    });
+  sessions = loginName
+    ? sessions.filter(isLoginNameSessionCookie(loginName))
+    : sessions;
 
-    if (organization) {
-      filtered = filtered.filter((cookie) => {
-        return cookie.organization === organization;
-      });
-    }
+  sessions = organization
+    ? sessions.filter(isOrganizationSessionCookie(organization))
+    : sessions;
 
-    const latest =
-      filtered && filtered.length
-        ? filtered.reduce((prev, current) => {
-            return new Date(prev.changeDate).getTime() >
-              new Date(current.changeDate).getTime()
-              ? prev
-              : current;
-          })
-        : undefined;
+  const latest = sessions.sort(sortSessionCookie).at(0);
 
-    if (latest) {
-      return latest;
-    } else {
-      console.error("sessions", sessions, loginName, organization);
-      return Promise.reject("Could not get the context or retrieve a session");
-    }
-  } else {
-    return Promise.reject("Could not read session cookie");
+  if (!latest) {
+    throw new Error("No session cookie found");
   }
-}
 
-export async function clearSessions() {}
+  return latest;
+}

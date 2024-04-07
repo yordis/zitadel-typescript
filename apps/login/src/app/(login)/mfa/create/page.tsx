@@ -17,6 +17,7 @@ export default function Page() {
         displayName="Max Peintner"
         loginName="max@zitadel.com"
       ></UserAvatar>
+
       <div className="w-full">
         <TextInput type="password" label="Password" />
       </div>

@@ -10,6 +10,7 @@ import {
 import { useRouter } from "next/navigation";
 import { ProviderSlug } from "@/lib/demos";
 import Alert from "./Alert";
+import { IdentityProviderType } from "@zitadel/proto/zitadel/settings/v2beta/login_settings_pb";
 
 export interface SignInWithIDPProps {
   children?: ReactNode;
@@ -72,11 +73,11 @@ export function SignInWithIDP({
   }
 
   return (
-    <div className="flex flex-col w-full space-y-2 text-sm">
+    <div className="flex flex-col w-full gap-2 text-sm">
       {identityProviders &&
         identityProviders.map((idp, i) => {
           switch (idp.type) {
-            case 6: // IdentityProviderType.IDENTITY_PROVIDER_TYPE_GITHUB:
+            case "IDENTITY_PROVIDER_TYPE_GITHUB":
               return (
                 <SignInWithGithub
                   key={`idp-${i}`}
@@ -89,21 +90,21 @@ export function SignInWithIDP({
                   }
                 ></SignInWithGithub>
               );
-            case 7: // IdentityProviderType.IDENTITY_PROVIDER_TYPE_GITHUB_ES:
+            case "IDENTITY_PROVIDER_TYPE_GITHUB_ES":
               return (
                 <SignInWithGithub
                   key={`idp-${i}`}
                   onClick={() => alert("TODO: unimplemented")}
                 ></SignInWithGithub>
               );
-            case 5: // IdentityProviderType.IDENTITY_PROVIDER_TYPE_AZURE_AD:
+            case "IDENTITY_PROVIDER_TYPE_AZURE_AD":
               return (
                 <SignInWithAzureAD
                   key={`idp-${i}`}
                   onClick={() => alert("TODO: unimplemented")}
                 ></SignInWithAzureAD>
               );
-            case 10: // IdentityProviderType.IDENTITY_PROVIDER_TYPE_GOOGLE:
+            case "IDENTITY_PROVIDER_TYPE_GOOGLE":
               return (
                 <SignInWithGoogle
                   key={`idp-${i}`}
@@ -118,14 +119,14 @@ export function SignInWithIDP({
                   }
                 ></SignInWithGoogle>
               );
-            case 8: // IdentityProviderType.IDENTITY_PROVIDER_TYPE_GITLAB:
+            case IdentityProviderType.GITLAB:
               return (
                 <SignInWithGitlab
                   key={`idp-${i}`}
                   onClick={() => alert("TODO: unimplemented")}
                 ></SignInWithGitlab>
               );
-            case 9: //IdentityProviderType.IDENTITY_PROVIDER_TYPE_GITLAB_SELF_HOSTED:
+            case IdentityProviderType.GITLAB_SELF_HOSTED:
               return (
                 <SignInWithGitlab
                   key={`idp-${i}`}

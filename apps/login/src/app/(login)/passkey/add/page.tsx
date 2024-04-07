@@ -1,9 +1,9 @@
-import { getBrandingSettings, getSession, server } from "@/lib/zitadel";
+import { getBrandingSettings, sessionService } from "@/lib/zitadel";
 import Alert, { AlertType } from "@/ui/Alert";
 import DynamicTheme from "@/ui/DynamicTheme";
 import RegisterPasskey from "@/ui/RegisterPasskey";
 import UserAvatar from "@/ui/UserAvatar";
-import { getMostRecentCookieWithLoginname } from "@/utils/cookies";
+import { getMostRecentCookieWithLoginName } from "@/utils/cookies";
 
 export default async function Page({
   searchParams,
@@ -16,15 +16,15 @@ export default async function Page({
   const sessionFactors = await loadSession(loginName);
 
   async function loadSession(loginName?: string) {
-    const recent = await getMostRecentCookieWithLoginname(
+    const recent = await getMostRecentCookieWithLoginName(
       loginName,
       organization,
     );
-    return getSession(server, recent.id, recent.token).then((response) => {
-      if (response?.session) {
-        return response.session;
-      }
+    const response = await sessionService.getSession({
+      sessionId: recent.id,
+      sessionToken: recent.token,
     });
+    return response?.session;
   }
   const title = !!promptPasswordless
     ? "Authenticate with a passkey"
@@ -33,7 +33,7 @@ export default async function Page({
     ? "When set up, you will be able to authenticate without a password."
     : "Your device will ask for your fingerprint, face, or screen lock";
 
-  const branding = await getBrandingSettings(server, organization);
+  const branding = await getBrandingSettings(organization);
 
   return (
     <DynamicTheme branding={branding}>
@@ -45,7 +45,6 @@ export default async function Page({
             loginName={loginName ?? sessionFactors.factors?.user?.loginName}
             displayName={sessionFactors.factors?.user?.displayName}
             showDropdown
-            searchParams={searchParams}
           ></UserAvatar>
         )}
         <p className="ztdl-p mb-6 block">{description}</p>

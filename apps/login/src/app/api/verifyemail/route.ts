@@ -1,4 +1,4 @@
-import { server, verifyEmail } from "@/lib/zitadel";
+import { userService } from "@/lib/zitadel";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -6,7 +6,11 @@ export async function POST(request: NextRequest) {
   if (body) {
     const { userId, code } = body;
 
-    return verifyEmail(server, userId, code)
+    return userService
+      .verifyEmail({
+        userId,
+        verificationCode: code,
+      })
       .then((resp) => {
         return NextResponse.json(resp);
       })

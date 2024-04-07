@@ -1,4 +1,4 @@
-import { getSession, server, verifyPasskeyRegistration } from "@/lib/zitadel";
+import { sessionService, userService } from "@/lib/zitadel";
 import { getSessionCookieById } from "@/utils/cookies";
 import { NextRequest, NextResponse, userAgent } from "next/server";
 
@@ -15,22 +15,21 @@ export async function POST(request: NextRequest) {
     }
     const sessionCookie = await getSessionCookieById(sessionId);
 
-    const session = await getSession(
-      server,
-      sessionCookie.id,
-      sessionCookie.token,
-    );
+    const session = await sessionService.getSession({
+      sessionId: sessionCookie.id,
+      sessionToken: sessionCookie.token,
+    });
 
     const userId = session?.session?.factors?.user?.id;
 
     if (userId) {
-      return verifyPasskeyRegistration(
-        server,
-        passkeyId,
-        passkeyName,
-        publicKeyCredential,
-        userId,
-      )
+      return userService
+        .verifyPasskeyRegistration({
+          passkeyId,
+          passkeyName,
+          publicKeyCredential,
+          userId,
+        })
         .then((resp) => {
           return NextResponse.json(resp);
         })
