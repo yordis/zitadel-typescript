@@ -59,6 +59,9 @@ importers:
       '@zitadel/client2':
         specifier: workspace:*
         version: link:../../packages/zitadel-client2
+      '@zitadel/node':
+        specifier: workspace:*
+        version: link:../../packages/zitadel-node
       '@zitadel/proto':
         specifier: workspace:*
         version: link:../../packages/zitadel-proto
