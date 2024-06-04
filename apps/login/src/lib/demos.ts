@@ -35,7 +35,7 @@ export const demos: { name: string; items: Item[] }[] = [
       },
       {
         name: "IDP Register",
-        slug: "/idp",
+        slug: "register/idp",
         description: "Add a user from an external identity provider",
       },
     ],

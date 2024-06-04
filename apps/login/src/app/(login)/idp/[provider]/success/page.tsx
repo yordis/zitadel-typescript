@@ -1,73 +1,59 @@
 import { ProviderSlug } from "@/lib/demos";
-import { getBrandingSettings, userService } from "@/lib/zitadel";
+import { getBrandingSettings, server } from "@/lib/zitadel";
 import Alert, { AlertType } from "@/ui/Alert";
 import DynamicTheme from "@/ui/DynamicTheme";
 import IdpSignin from "@/ui/IdpSignin";
-import { PartialMessage } from "@zitadel/client2";
 import {
+  AddHumanUserRequest,
   IDPInformation,
+  RetrieveIdentityProviderIntentResponse,
+  user,
   IDPLink,
-} from "@zitadel/proto/zitadel/user/v2beta/idp_pb";
-import { AddHumanUserRequest } from "@zitadel/proto/zitadel/user/v2beta/user_service_pb";
+} from "@zitadel/server";
+import { ClientError } from "nice-grpc";
 
 const PROVIDER_MAPPING: {
-  [provider: string]: (
-    rI: IDPInformation,
-  ) => PartialMessage<AddHumanUserRequest>;
+  [provider: string]: (rI: IDPInformation) => Partial<AddHumanUserRequest>;
 } = {
   [ProviderSlug.GOOGLE]: (idp: IDPInformation) => {
-    const rawInfo = idp.rawInformation?.toJson() as {
-      User: {
-        email: string;
-        name?: string;
-        given_name?: string;
-        family_name?: string;
-      };
-    };
-
-    const idpLink: PartialMessage<IDPLink> = {
+    const idpLink: IDPLink = {
       idpId: idp.idpId,
       userId: idp.userId,
       userName: idp.userName,
     };
-
-    const req: PartialMessage<AddHumanUserRequest> = {
+    const req: Partial<AddHumanUserRequest> = {
       username: idp.userName,
       email: {
-        email: rawInfo.User.email,
-        verification: { case: "isVerified", value: true },
+        email: idp.rawInformation?.User?.email,
+        isVerified: true,
       },
       // organisation: Organisation | undefined;
       profile: {
-        displayName: rawInfo.User?.name ?? "",
-        givenName: rawInfo.User?.given_name ?? "",
-        familyName: rawInfo.User?.family_name ?? "",
+        displayName: idp.rawInformation?.User?.name ?? "",
+        givenName: idp.rawInformation?.User?.given_name ?? "",
+        familyName: idp.rawInformation?.User?.family_name ?? "",
       },
       idpLinks: [idpLink],
     };
     return req;
   },
   [ProviderSlug.GITHUB]: (idp: IDPInformation) => {
-    const rawInfo = idp.rawInformation?.toJson() as {
-      email: string;
-      name: string;
-    };
-    const idpLink: PartialMessage<IDPLink> = {
+    const idpLink: IDPLink = {
       idpId: idp.idpId,
       userId: idp.userId,
       userName: idp.userName,
     };
-    const req: PartialMessage<AddHumanUserRequest> = {
+    const req: Partial<AddHumanUserRequest> = {
       username: idp.userName,
       email: {
-        email: rawInfo.email,
-        verification: { case: "isVerified", value: true },
+        email: idp.rawInformation?.email,
+        isVerified: true,
       },
       // organisation: Organisation | undefined;
       profile: {
-        displayName: rawInfo.name ?? "",
-        givenName: rawInfo.name ?? "",
-        familyName: rawInfo.name ?? "",
+        displayName: idp.rawInformation?.name ?? "",
+        givenName: idp.rawInformation?.name ?? "",
+        familyName: idp.rawInformation?.name ?? "",
       },
       idpLinks: [idpLink],
     };
@@ -75,7 +61,11 @@ const PROVIDER_MAPPING: {
   },
 };
 
-function retrieveIDPIntent(id: string, token: string) {
+function retrieveIDPIntent(
+  id: string,
+  token: string,
+): Promise<RetrieveIdentityProviderIntentResponse> {
+  const userService = user.getUser(server);
   return userService.retrieveIdentityProviderIntent(
     { idpIntentId: id, idpIntentToken: token },
     {},
@@ -87,6 +77,7 @@ function createUser(
   info: IDPInformation,
 ): Promise<string> {
   const userData = PROVIDER_MAPPING[provider](info);
+  const userService = user.getUser(server);
   return userService.addHumanUser(userData, {}).then((resp) => resp.userId);
 }
 
@@ -100,12 +91,13 @@ export default async function Page({
   const { id, token, authRequestId, organization } = searchParams;
   const { provider } = params;
 
-  const branding = await getBrandingSettings(organization);
+  const branding = await getBrandingSettings(server, organization);
 
   if (provider && id && token) {
     return retrieveIDPIntent(id, token)
       .then((resp) => {
         const { idpInformation, userId } = resp;
+
         if (idpInformation) {
           // handle login
           if (userId) {
@@ -136,7 +128,7 @@ export default async function Page({
                   </DynamicTheme>
                 );
               })
-              .catch((error) => {
+              .catch((error: ClientError) => {
                 return (
                   <DynamicTheme branding={branding}>
                     <div className="flex flex-col items-center space-y-4">
@@ -144,7 +136,7 @@ export default async function Page({
                       <div className="w-full">
                         {
                           <Alert type={AlertType.ALERT}>
-                            {JSON.stringify(error.message)}
+                            {JSON.stringify(error.details)}
                           </Alert>
                         }
                       </div>
@@ -175,10 +167,14 @@ export default async function Page({
       });
   } else {
     return (
-      <div className="flex flex-col items-center space-y-4">
-        <h1>Register</h1>
-        <p className="ztdl-p">No id and token received!</p>
-      </div>
+      <DynamicTheme branding={branding}>
+        <div className="flex flex-col items-center space-y-4">
+          <div className="flex flex-col items-center space-y-4">
+            <h1>Register</h1>
+            <p className="ztdl-p">No id and token received!</p>
+          </div>
+        </div>
+      </DynamicTheme>
     );
   }
 }

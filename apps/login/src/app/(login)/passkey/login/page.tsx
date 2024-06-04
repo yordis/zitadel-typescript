@@ -1,10 +1,10 @@
-import { getBrandingSettings, sessionService } from "@/lib/zitadel";
+import { getBrandingSettings, getSession, server } from "@/lib/zitadel";
 import Alert from "@/ui/Alert";
 import DynamicTheme from "@/ui/DynamicTheme";
 import LoginPasskey from "@/ui/LoginPasskey";
 import UserAvatar from "@/ui/UserAvatar";
 import {
-  getMostRecentCookieWithLoginName,
+  getMostRecentCookieWithLoginname,
   getSessionCookieById,
 } from "@/utils/cookies";
 
@@ -28,27 +28,27 @@ export default async function Page({
     loginName?: string,
     organization?: string,
   ) {
-    const recent = await getMostRecentCookieWithLoginName(
+    const recent = await getMostRecentCookieWithLoginname(
       loginName,
       organization,
     );
-    const response = await sessionService.getSession({
-      sessionId: recent.id,
-      sessionToken: recent.token,
+    return getSession(server, recent.id, recent.token).then((response) => {
+      if (response?.session) {
+        return response.session;
+      }
     });
-    return response?.session;
   }
 
   async function loadSessionById(sessionId: string, organization?: string) {
     const recent = await getSessionCookieById(sessionId, organization);
-    const response = await sessionService.getSession({
-      sessionId: recent.id,
-      sessionToken: recent.token,
+    return getSession(server, recent.id, recent.token).then((response) => {
+      if (response?.session) {
+        return response.session;
+      }
     });
-    return response?.session;
   }
 
-  const branding = await getBrandingSettings(organization);
+  const branding = await getBrandingSettings(server, organization);
 
   return (
     <DynamicTheme branding={branding}>
@@ -60,11 +60,10 @@ export default async function Page({
             loginName={loginName ?? sessionFactors.factors?.user?.loginName}
             displayName={sessionFactors.factors?.user?.displayName}
             showDropdown
+            searchParams={searchParams}
           ></UserAvatar>
         )}
         <p className="ztdl-p mb-6 block">{description}</p>
-
-        {!sessionFactors && <div className="py-4"></div>}
 
         {!(loginName || sessionId) && (
           <Alert>Provide your active session as loginName param</Alert>

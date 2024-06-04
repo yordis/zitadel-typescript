@@ -1,4 +1,4 @@
-import { listUsers, userService } from "@/lib/zitadel";
+import { listAuthenticationMethodTypes, listUsers } from "@/lib/zitadel";
 import { createSessionForUserIdAndUpdateCookie } from "@/utils/session";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -7,7 +7,11 @@ export async function POST(request: NextRequest) {
   if (body) {
     const { loginName, authRequestId, organization } = body;
     return listUsers(loginName, organization).then((users) => {
-      if (users.details?.totalResult === BigInt(1) && users.result[0].userId) {
+      if (
+        users.details &&
+        users.details.totalResult == 1 &&
+        users.result[0].userId
+      ) {
         const userId = users.result[0].userId;
         return createSessionForUserIdAndUpdateCookie(
           userId,
@@ -17,10 +21,7 @@ export async function POST(request: NextRequest) {
         )
           .then((session) => {
             if (session.factors?.user?.id) {
-              return userService
-                .listAuthenticationMethodTypes({
-                  userId: session.factors?.user?.id,
-                })
+              return listAuthenticationMethodTypes(session.factors?.user?.id)
                 .then((methods) => {
                   return NextResponse.json({
                     authMethodTypes: methods.authMethodTypes,

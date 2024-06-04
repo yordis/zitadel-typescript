@@ -1,6 +1,6 @@
 "use client";
 
-import { LegalAndSupportSettings } from "@zitadel/proto/zitadel/settings/v2beta/legal_settings_pb";
+import { LegalAndSupportSettings } from "@zitadel/server";
 import { useState } from "react";
 import { Button, ButtonVariants } from "./Button";
 import { TextInput } from "./Input";

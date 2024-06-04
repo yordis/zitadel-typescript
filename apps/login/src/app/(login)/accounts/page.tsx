@@ -1,5 +1,5 @@
-import { Session } from "@zitadel/proto/zitadel/session/v2beta/session_pb";
-import { getBrandingSettings, sessionService } from "@/lib/zitadel";
+import { Session } from "@zitadel/server";
+import { getBrandingSettings, listSessions, server } from "@/lib/zitadel";
 import { getAllSessionCookieIds } from "@/utils/cookies";
 import { UserPlusIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
@@ -9,22 +9,16 @@ import DynamicTheme from "@/ui/DynamicTheme";
 async function loadSessions(): Promise<Session[]> {
   const ids = await getAllSessionCookieIds();
 
-  if (ids.length === 0) {
+  if (ids && ids.length) {
+    const response = await listSessions(
+      server,
+      ids.filter((id: string | undefined) => !!id),
+    );
+    return response?.sessions ?? [];
+  } else {
+    console.info("No session cookie found.");
     return [];
   }
-
-  const response = await sessionService.listSessions({
-    queries: [
-      {
-        query: {
-          case: "idsQuery",
-          value: { ids: ids.filter((id: string | undefined) => !!id) },
-        },
-      },
-    ],
-  });
-
-  return response.sessions;
 }
 
 export default async function Page({
@@ -37,7 +31,7 @@ export default async function Page({
 
   let sessions = await loadSessions();
 
-  const branding = await getBrandingSettings(organization);
+  const branding = await getBrandingSettings(server, organization);
 
   return (
     <DynamicTheme branding={branding}>

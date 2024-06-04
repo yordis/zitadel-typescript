@@ -1,4 +1,9 @@
-import { sessionService, userService } from "@/lib/zitadel";
+import {
+  createPasskeyRegistrationLink,
+  getSession,
+  registerPasskey,
+  server,
+} from "@/lib/zitadel";
 import { getSessionCookieById } from "@/utils/cookies";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -9,10 +14,11 @@ export async function POST(request: NextRequest) {
 
     const sessionCookie = await getSessionCookieById(sessionId);
 
-    const session = await sessionService.getSession({
-      sessionId: sessionCookie.id,
-      sessionToken: sessionCookie.token,
-    });
+    const session = await getSession(
+      server,
+      sessionCookie.id,
+      sessionCookie.token,
+    );
 
     const domain: string = request.nextUrl.hostname;
 
@@ -20,26 +26,12 @@ export async function POST(request: NextRequest) {
 
     if (userId) {
       // TODO: add org context
-      return userService
-        .createPasskeyRegistrationLink({
-          userId,
-          medium: {
-            case: "returnCode",
-            value: {},
-          },
-        })
+      return createPasskeyRegistrationLink(userId)
         .then((resp) => {
           const code = resp.code;
-          return userService
-            .registerPasskey({
-              userId,
-              code,
-              domain,
-              // authenticator:
-            })
-            .then((resp) => {
-              return NextResponse.json(resp);
-            });
+          return registerPasskey(userId, code, domain).then((resp) => {
+            return NextResponse.json(resp);
+          });
         })
         .catch((error) => {
           console.error("error on creating passkey registration link");

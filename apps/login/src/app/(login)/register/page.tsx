@@ -2,6 +2,7 @@ import {
   getBrandingSettings,
   getLegalAndSupportSettings,
   getPasswordComplexitySettings,
+  server,
 } from "@/lib/zitadel";
 import DynamicTheme from "@/ui/DynamicTheme";
 import RegisterFormWithoutPassword from "@/ui/RegisterFormWithoutPassword";
@@ -17,11 +18,13 @@ export default async function Page({
 
   const setPassword = !!(firstname && lastname && email);
 
-  const legal = await getLegalAndSupportSettings(organization);
-  const passwordComplexitySettings =
-    await getPasswordComplexitySettings(organization);
+  const legal = await getLegalAndSupportSettings(server, organization);
+  const passwordComplexitySettings = await getPasswordComplexitySettings(
+    server,
+    organization,
+  );
 
-  const branding = await getBrandingSettings(organization);
+  const branding = await getBrandingSettings(server, organization);
 
   return setPassword ? (
     <DynamicTheme branding={branding}>

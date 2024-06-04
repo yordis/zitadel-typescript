@@ -1,5 +1,8 @@
-import { addHumanUser } from "@/lib/zitadel";
-import { createSessionForUserIdAndUpdateCookie } from "@/utils/session";
+import { addHumanUser, server } from "@/lib/zitadel";
+import {
+  createSessionAndUpdateCookie,
+  createSessionForUserIdAndUpdateCookie,
+} from "@/utils/session";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -14,7 +17,7 @@ export async function POST(request: NextRequest) {
       authRequestId,
     } = body;
 
-    return addHumanUser({
+    return addHumanUser(server, {
       email: email,
       firstName,
       lastName,
