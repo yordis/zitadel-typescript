@@ -23,7 +23,8 @@
     "build": "next build",
     "prestart": "pnpm build",
     "start": "next start",
-    "clean": "pnpm mock:destroy && rm -rf .turbo && rm -rf node_modules && rm -rf .next"
+    "clean": "pnpm mock:destroy && rm -rf .turbo && rm -rf node_modules && rm -rf .next",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "git": {
     "pre-commit": "lint-staged"

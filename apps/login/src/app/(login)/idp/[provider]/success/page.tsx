@@ -1,14 +1,19 @@
 import { ProviderSlug } from "@/lib/demos";
-import {getBrandingSettings, userService} from "@/lib/zitadel";
+import { getBrandingSettings, userService } from "@/lib/zitadel";
 import Alert, { AlertType } from "@/ui/Alert";
 import DynamicTheme from "@/ui/DynamicTheme";
 import IdpSignin from "@/ui/IdpSignin";
-import {AddHumanUserRequest} from "@zitadel/proto/zitadel/user/v2beta/user_service_pb";
-import {IDPInformation, IDPLink} from "@zitadel/proto/zitadel/user/v2beta/idp_pb";
-import {PartialMessage} from "@zitadel/client2";
+import { AddHumanUserRequest } from "@zitadel/proto/zitadel/user/v2beta/user_service_pb";
+import {
+  IDPInformation,
+  IDPLink,
+} from "@zitadel/proto/zitadel/user/v2beta/idp_pb";
+import { PartialMessage } from "@zitadel/client2";
 
 const PROVIDER_MAPPING: {
-  [provider: string]: (rI: IDPInformation) => PartialMessage<AddHumanUserRequest>;
+  [provider: string]: (
+    rI: IDPInformation,
+  ) => PartialMessage<AddHumanUserRequest>;
 } = {
   [ProviderSlug.GOOGLE]: (idp: IDPInformation) => {
     const rawInfo = idp.rawInformation?.toJson() as {
@@ -70,10 +75,7 @@ const PROVIDER_MAPPING: {
   },
 };
 
-function retrieveIDPIntent(
-  id: string,
-  token: string,
-) {
+function retrieveIDPIntent(id: string, token: string) {
   return userService.retrieveIdentityProviderIntent(
     { idpIntentId: id, idpIntentToken: token },
     {},

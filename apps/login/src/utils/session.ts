@@ -11,9 +11,13 @@ import {
   addSessionToCookie,
   updateSessionCookie,
 } from "./cookies";
-import {Challenges, RequestChallenges} from "@zitadel/proto/zitadel/session/v2beta/challenge_pb";
-import {Session} from "@zitadel/proto/zitadel/session/v2beta/session_pb";
-import {Checks} from "@zitadel/proto/zitadel/session/v2beta/session_service_pb";
+import {
+  Challenges,
+  RequestChallenges,
+} from "@zitadel/proto/zitadel/session/v2beta/challenge_pb";
+import { Session } from "@zitadel/proto/zitadel/session/v2beta/session_pb";
+import { Checks } from "@zitadel/proto/zitadel/session/v2beta/session_service_pb";
+import { PlainMessage } from "@zitadel/client2";
 
 export async function createSessionAndUpdateCookie(
   loginName: string,
@@ -25,11 +29,11 @@ export async function createSessionAndUpdateCookie(
   const createdSession = await createSessionFromChecks(
     password
       ? {
-          user: { search: {case: 'loginName', value: loginName} },
+          user: { search: { case: "loginName", value: loginName } },
           password: { password },
           // totp: { code: totpCode },
         }
-      : { user: { search: {case: 'loginName', value: loginName} } },
+      : { user: { search: { case: "loginName", value: loginName } } },
     challenges,
   );
 
@@ -78,11 +82,11 @@ export async function createSessionForUserIdAndUpdateCookie(
   const createdSession = await createSessionFromChecks(
     password
       ? {
-          user: { search: {case: "userId", value: userId} },
+          user: { search: { case: "userId", value: userId } },
           password: { password },
           // totp: { code: totpCode },
         }
-      : { user: { search: {case: "userId", value: userId} } },
+      : { user: { search: { case: "userId", value: userId } } },
     challenges,
   );
 
@@ -178,7 +182,7 @@ export type SessionWithChallenges = Session & {
 
 export async function setSessionAndUpdateCookie(
   recentCookie: SessionCookie,
-  checks: Checks,
+  checks: PlainMessage<Checks>,
   challenges: RequestChallenges | undefined,
   authRequestId: string | undefined,
 ) {
